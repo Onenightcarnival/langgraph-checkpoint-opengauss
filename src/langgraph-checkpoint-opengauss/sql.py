@@ -7,10 +7,7 @@ from psycopg import sql
 
 
 class OpenGaussSQL:
-    MIGRATIONS = tuple(
-        statement.replace("INDEX CONCURRENTLY", "INDEX")
-        for statement in base.MIGRATIONS
-    )
+    MIGRATIONS = tuple(statement.replace("INDEX CONCURRENTLY", "INDEX") for statement in base.MIGRATIONS)
 
     SELECT_SQL = f"""
         SELECT
@@ -257,9 +254,7 @@ def prune_transactions(thread_ids: Sequence[str], strategy: str):
     if not ids:
         return
     if strategy == "delete":
-        yield (
-            (statement, (ids,), False) for statement in base.PRUNE_DELETE_THREADS_SQL
-        )
+        yield ((statement, (ids,), False) for statement in base.PRUNE_DELETE_THREADS_SQL)
     else:
         yield base._refuse_delta_threads(ids)
         for thread in ids:

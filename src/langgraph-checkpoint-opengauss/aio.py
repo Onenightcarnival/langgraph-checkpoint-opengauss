@@ -40,9 +40,7 @@ class AsyncOpenGaussSaver(sql.OpenGaussSQL, AsyncPostgresSaver):
                 yield cls(conn, serde=serde)
 
     @asynccontextmanager
-    async def _cursor(
-        self, *, pipeline: bool = False
-    ) -> AsyncIterator[AsyncCursor[DictRow]]:
+    async def _cursor(self, *, pipeline: bool = False) -> AsyncIterator[AsyncCursor[DictRow]]:
         async with (
             self.lock,
             _ainternal.get_connection(self.conn) as conn,
@@ -50,9 +48,7 @@ class AsyncOpenGaussSaver(sql.OpenGaussSQL, AsyncPostgresSaver):
             conn.cursor(binary=True, row_factory=dict_row) as cur,
         ):
             await cur.execute("SHOW behavior_compat_options")
-            option = sql.empty_string_option(
-                (await cur.fetchone())["behavior_compat_options"]
-            )
+            option = sql.empty_string_option((await cur.fetchone())["behavior_compat_options"])
             if option is not None:
                 await cur.execute(option)
             yield cur
@@ -81,9 +77,7 @@ class AsyncOpenGaussSaver(sql.OpenGaussSQL, AsyncPostgresSaver):
         metadata: CheckpointMetadata,
         new_versions: ChannelVersions,
     ) -> RunnableConfig:
-        return await super().aput(
-            sql.with_namespace(config), checkpoint, metadata, new_versions
-        )
+        return await super().aput(sql.with_namespace(config), checkpoint, metadata, new_versions)
 
     async def setup(self) -> None:
         async with self._cursor() as cur:
@@ -95,21 +89,15 @@ class AsyncOpenGaussSaver(sql.OpenGaussSQL, AsyncPostgresSaver):
         except RuntimeError:
             return
         if loop is self.loop:
-            raise asyncio.InvalidStateError(
-                "Use the async method on the saver's event loop"
-            )
+            raise asyncio.InvalidStateError("Use the async method on the saver's event loop")
 
     def copy_thread(self, source_thread_id: str, target_thread_id: str) -> None:
         self._check_sync_thread()
-        asyncio.run_coroutine_threadsafe(
-            self.acopy_thread(source_thread_id, target_thread_id), self.loop
-        ).result()
+        asyncio.run_coroutine_threadsafe(self.acopy_thread(source_thread_id, target_thread_id), self.loop).result()
 
     def delete_for_runs(self, run_ids: Sequence[str]) -> None:
         self._check_sync_thread()
-        asyncio.run_coroutine_threadsafe(
-            self.adelete_for_runs(run_ids), self.loop
-        ).result()
+        asyncio.run_coroutine_threadsafe(self.adelete_for_runs(run_ids), self.loop).result()
 
     async def acopy_thread(self, source_thread_id: str, target_thread_id: str) -> None:
         async with self._cursor() as cur:
@@ -119,9 +107,7 @@ class AsyncOpenGaussSaver(sql.OpenGaussSQL, AsyncPostgresSaver):
         async with self._cursor() as cur:
             await _aexecute(cur, sql.delete_for_runs(run_ids))
 
-    async def aprune(
-        self, thread_ids: Sequence[str], *, strategy: str = "keep_latest"
-    ) -> None:
+    async def aprune(self, thread_ids: Sequence[str], *, strategy: str = "keep_latest") -> None:
         for transaction in sql.prune_transactions(thread_ids, strategy):
             async with self._cursor() as cur:
                 await _aexecute(cur, transaction)

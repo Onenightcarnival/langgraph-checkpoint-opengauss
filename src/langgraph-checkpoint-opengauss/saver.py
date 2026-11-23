@@ -28,9 +28,7 @@ class OpenGaussSaver(sql.OpenGaussSQL, PostgresSaver):
         pipeline: bool = False,
         serde: SerializerProtocol | None = None,
     ) -> Iterator["OpenGaussSaver"]:
-        with Connection.connect(
-            conn_string, autocommit=True, prepare_threshold=None, row_factory=dict_row
-        ) as conn:
+        with Connection.connect(conn_string, autocommit=True, prepare_threshold=None, row_factory=dict_row) as conn:
             if pipeline:
                 with conn.pipeline() as pipe:
                     yield cls(conn, pipe, serde)
@@ -75,9 +73,7 @@ class OpenGaussSaver(sql.OpenGaussSQL, PostgresSaver):
         metadata: CheckpointMetadata,
         new_versions: ChannelVersions,
     ) -> RunnableConfig:
-        return super().put(
-            sql.with_namespace(config), checkpoint, metadata, new_versions
-        )
+        return super().put(sql.with_namespace(config), checkpoint, metadata, new_versions)
 
     def setup(self) -> None:
         with self._cursor() as cur:
@@ -91,9 +87,7 @@ class OpenGaussSaver(sql.OpenGaussSQL, PostgresSaver):
         with self._cursor() as cur:
             _execute(cur, sql.delete_for_runs(run_ids))
 
-    def prune(
-        self, thread_ids: Sequence[str], *, strategy: str = "keep_latest"
-    ) -> None:
+    def prune(self, thread_ids: Sequence[str], *, strategy: str = "keep_latest") -> None:
         for transaction in sql.prune_transactions(thread_ids, strategy):
             with self._cursor() as cur:
                 _execute(cur, transaction)

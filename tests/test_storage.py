@@ -13,23 +13,15 @@ from langgraph_checkpoint_opengauss import AsyncOpenGaussSaver, OpenGaussSaver
 
 
 def test_manual_schema(conninfo, schema_factory, run_async):
-    ddl = (
-        files("langgraph_checkpoint_opengauss")
-        .joinpath("schema.sql")
-        .read_text("utf-8")
-    )
+    ddl = files("langgraph_checkpoint_opengauss").joinpath("schema.sql").read_text("utf-8")
     with psycopg.connect(conninfo, autocommit=True) as admin:
         admin.execute(ddl)
         with OpenGaussSaver.from_conn_string(conninfo) as saver:
-            checkpoint = generate_checkpoint(
-                channel_values={"data": b"ok"}, channel_versions={"data": 1}
-            )
+            checkpoint = generate_checkpoint(channel_values={"data": b"ok"}, channel_versions={"data": 1})
             config = saver.put(generate_config("manual"), checkpoint, {}, {"data": 1})
 
         admin.execute(ddl)
-        versions = admin.execute(
-            "SELECT v FROM checkpoint_migrations ORDER BY v"
-        ).fetchall()
+        versions = admin.execute("SELECT v FROM checkpoint_migrations ORDER BY v").fetchall()
         assert [v for (v,) in versions] == list(range(len(OpenGaussSaver.MIGRATIONS)))
 
         with schema_factory() as reference:
@@ -51,10 +43,7 @@ def test_manual_schema(conninfo, schema_factory, run_async):
                     ORDER BY indexname
                     """,
                 ):
-                    assert (
-                        admin.execute(query).fetchall()
-                        == expected.execute(query).fetchall()
-                    )
+                    assert admin.execute(query).fetchall() == expected.execute(query).fetchall()
 
     async def resume():
         async with AsyncOpenGaussSaver.from_conn_string(conninfo) as saver:
@@ -73,9 +62,7 @@ def test_pipeline_connections(conninfo, run_async):
         assert saver.get(config) is not None
 
     async def resume():
-        async with AsyncOpenGaussSaver.from_conn_string(
-            conninfo, pipeline=True
-        ) as saver:
+        async with AsyncOpenGaussSaver.from_conn_string(conninfo, pipeline=True) as saver:
             assert await saver.aget(config) is not None
             await saver.acopy_thread("pipeline", "copy")
             await saver.aprune(["copy"])
@@ -92,9 +79,7 @@ def test_concurrent_setup_and_rollback(conninfo):
     with ThreadPoolExecutor(max_workers=3) as workers:
         list(workers.map(setup, range(3)))
     with OpenGaussSaver.from_conn_string(conninfo) as saver:
-        cp = generate_checkpoint(
-            channel_values={"blob": b"\x00\xff"}, channel_versions={"blob": 1}
-        )
+        cp = generate_checkpoint(channel_values={"blob": b"\x00\xff"}, channel_versions={"blob": 1})
         cfg = {"configurable": {"thread_id": "source"}}
         with pytest.raises((TypeError, psycopg.Error)):
             saver.put(cfg, cp, {"invalid": object()}, {"blob": 1})
@@ -109,9 +94,7 @@ def test_copy_delete_and_shared_blobs(conninfo):
     with OpenGaussSaver.from_conn_string(conninfo) as saver:
         saver.setup()
         values = {"共享": b"\xff\x00", "obsolete": ["old"]}
-        first = generate_checkpoint(
-            channel_values=values, channel_versions=dict.fromkeys(values, 1)
-        )
+        first = generate_checkpoint(channel_values=values, channel_versions=dict.fromkeys(values, 1))
         parent = saver.put(
             generate_config("source"),
             first,
@@ -125,9 +108,7 @@ def test_copy_delete_and_shared_blobs(conninfo):
         assert saver.get(parent) is None
         assert saver.get(kept)["channel_values"] == {"共享": values["共享"]}
         saver.delete_thread("source")
-        assert saver.get(generate_config("destination"))["channel_values"] == {
-            "共享": values["共享"]
-        }
+        assert saver.get(generate_config("destination"))["channel_values"] == {"共享": values["共享"]}
         with saver.conn.cursor() as cur:
             cur.execute("SELECT channel FROM checkpoint_blobs")
             assert cur.fetchall() == [{"channel": "共享"}]
@@ -146,26 +127,18 @@ def test_legacy_sends_scoped_to_namespace_and_thread(conninfo):
         assert len(children) == 3
         for row in children:
             keys = row.config["configurable"]
-            assert row.checkpoint["channel_values"][TASKS] == [
-                [keys["thread_id"], keys["checkpoint_ns"]]
-            ]
+            assert row.checkpoint["channel_values"][TASKS] == [[keys["thread_id"], keys["checkpoint_ns"]]]
 
 
 def test_delta_snapshot_and_prune_guard(conninfo, run_async):
     snapshot = _DeltaSnapshot(["first"])
     with OpenGaussSaver.from_conn_string(conninfo) as saver:
         saver.setup()
-        first = generate_checkpoint(
-            channel_values={"events": snapshot}, channel_versions={"events": "1"}
-        )
+        first = generate_checkpoint(channel_values={"events": snapshot}, channel_versions={"events": "1"})
         root = saver.put(generate_config("delta"), first, {}, first["channel_versions"])
         saver.put_writes(root, [("events", "second")], "task")
-        last = saver.put(
-            root, generate_checkpoint(channel_versions={"events": "2"}), {}, {}
-        )
-        history = saver.get_delta_channel_history(
-            config=last, channels=["events", "missing"]
-        )
+        last = saver.put(root, generate_checkpoint(channel_versions={"events": "2"}), {}, {})
+        history = saver.get_delta_channel_history(config=last, channels=["events", "missing"])
         assert history["events"]["seed"] == snapshot
         assert history["events"]["writes"] == [("task", "events", "second")]
         assert history["missing"] == {"writes": []}
@@ -174,11 +147,6 @@ def test_delta_snapshot_and_prune_guard(conninfo, run_async):
 
     async def read_history():
         async with AsyncOpenGaussSaver.from_conn_string(conninfo) as saver:
-            assert (
-                await saver.aget_delta_channel_history(
-                    config=last, channels=list(history)
-                )
-                == history
-            )
+            assert await saver.aget_delta_channel_history(config=last, channels=list(history)) == history
 
     run_async(read_history())

@@ -48,17 +48,10 @@ def test_conformance(mode, schema_factory, run_async):
     report = run_async(validate(factory))
     assert set(report.results) == {cap.value for cap in Capability}
     for capability, result in report.results.items():
-        print(
-            f"{mode} {capability}: {result.tests_passed} passed, {result.tests_failed} failed"
-        )
-    failures = [
-        error for result in report.results.values() for error in result.failures
-    ]
+        print(f"{mode} {capability}: {result.tests_passed} passed, {result.tests_failed} failed")
+    failures = [error for result in report.results.values() for error in result.failures]
     assert not failures, "\n".join(failures)
     assert all(
-        result.detected
-        and result.passed
-        and result.tests_passed > 0
-        and result.tests_skipped == 0
+        result.detected and result.passed and result.tests_passed > 0 and result.tests_skipped == 0
         for result in report.results.values()
     )

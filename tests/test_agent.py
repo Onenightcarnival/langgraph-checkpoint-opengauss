@@ -27,11 +27,7 @@ def test_agent_resumes_after_reconnect(conninfo, run_async):
     with OpenGaussSaver.from_conn_string(conninfo) as saver:
         saver.setup()
         result = build_agent(saver).invoke(
-            {
-                "messages": [
-                    ("user", f"Remember the reference code {marker}. Reply with OK.")
-                ]
-            },
+            {"messages": [("user", f"Remember the reference code {marker}. Reply with OK.")]},
             config,
         )
         previous = [message.id for message in result["messages"]]
