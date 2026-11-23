@@ -1,0 +1,42 @@
+[migration]
+lock = "SELECT pg_advisory_xact_lock(hashtext(current_schema()), hashtext('store_migrations'))"
+create = "CREATE TABLE IF NOT EXISTS {table} (v INTEGER PRIMARY KEY)"
+latest = "SELECT max(v) AS version FROM {table}"
+record = "INSERT INTO {table} (v) VALUES (%s)"
+vector_type = "SELECT NULL::vector"
+fractional_ttl = "ALTER TABLE store ALTER COLUMN ttl_minutes TYPE DOUBLE PRECISION"
+vector_index = """
+CREATE INDEX IF NOT EXISTS store_vectors_embedding_idx
+    ON store_vectors USING {kind} (embedding {ops}){options}
+"""
+
+[put]
+clear_vectors = """
+DELETE FROM store_vectors
+WHERE (prefix, key) IN (
+    SELECT unnest(%s::text[]), unnest(%s::text[])
+)
+"""
+conflict = "ON CONFLICT"
+item = """
+ON DUPLICATE KEY UPDATE
+    value = VALUES(value),
+    updated_at = CURRENT_TIMESTAMP,
+    expires_at = VALUES(expires_at),
+    ttl_minutes = VALUES(ttl_minutes)
+"""
+vector = """
+ON DUPLICATE KEY UPDATE
+    embedding = VALUES(embedding),
+    updated_at = CURRENT_TIMESTAMP
+"""
+
+[ttl]
+sweep = """
+WITH expired AS (
+    DELETE FROM store
+    WHERE expires_at < CURRENT_TIMESTAMP
+    RETURNING 1
+)
+SELECT count(*) AS deleted FROM expired
+"""
