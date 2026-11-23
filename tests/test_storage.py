@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor
+from importlib.resources import files
 
 import psycopg
 import pytest
@@ -9,6 +10,60 @@ from langgraph.checkpoint.conformance.test_utils import (
 )
 from langgraph.checkpoint.serde.types import TASKS, _DeltaSnapshot
 from langgraph_checkpoint_opengauss import AsyncOpenGaussSaver, OpenGaussSaver
+
+
+def test_manual_schema(conninfo, schema_factory, run_async):
+    ddl = (
+        files("langgraph_checkpoint_opengauss")
+        .joinpath("schema.sql")
+        .read_text("utf-8")
+    )
+    with psycopg.connect(conninfo, autocommit=True) as admin:
+        admin.execute(ddl)
+        with OpenGaussSaver.from_conn_string(conninfo) as saver:
+            checkpoint = generate_checkpoint(
+                channel_values={"data": b"ok"}, channel_versions={"data": 1}
+            )
+            config = saver.put(generate_config("manual"), checkpoint, {}, {"data": 1})
+
+        admin.execute(ddl)
+        versions = admin.execute(
+            "SELECT v FROM checkpoint_migrations ORDER BY v"
+        ).fetchall()
+        assert [v for (v,) in versions] == list(range(len(OpenGaussSaver.MIGRATIONS)))
+
+        with schema_factory() as reference:
+            with OpenGaussSaver.from_conn_string(reference) as saver:
+                saver.setup()
+            with psycopg.connect(reference) as expected:
+                for query in (
+                    """
+                    SELECT table_name, column_name, ordinal_position, data_type,
+                           is_nullable, column_default
+                    FROM information_schema.columns
+                    WHERE table_schema = current_schema()
+                    ORDER BY table_name, ordinal_position
+                    """,
+                    """
+                    SELECT indexname, replace(indexdef, current_schema()::text, 'test_schema')
+                    FROM pg_indexes
+                    WHERE schemaname = current_schema()
+                    ORDER BY indexname
+                    """,
+                ):
+                    assert (
+                        admin.execute(query).fetchall()
+                        == expected.execute(query).fetchall()
+                    )
+
+    async def resume():
+        async with AsyncOpenGaussSaver.from_conn_string(conninfo) as saver:
+            assert (await saver.aget(config))["channel_values"] == {"data": b"ok"}
+            await saver.aput_writes(config, [("answer", 42)], "task")
+
+    run_async(resume())
+    with OpenGaussSaver.from_conn_string(conninfo) as saver:
+        assert saver.get_tuple(config).pending_writes == [("task", "answer", 42)]
 
 
 def test_pipeline_connections(conninfo, run_async):

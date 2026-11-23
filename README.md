@@ -12,7 +12,13 @@ uv add --editable ../langgraph-checkpoint-opengauss
 
 运行环境需要 psycopg 3 和可用的 libpq。使用预编译驱动的环境可安装 `psycopg[binary]`。数据库需允许 PostgreSQL 客户端使用配置的认证方式连接。
 
-连接串接受 libpq DSN，也可用空字符串读取 `PGHOST`、`PGPORT`、`PGDATABASE`、`PGUSER`、`PGPASSWORD` 和 `PGSSLMODE`。首次使用时，`setup()` 在当前 schema 中建立或迁移检查点表。
+连接串接受 libpq DSN，也可用空字符串读取 `PGHOST`、`PGPORT`、`PGDATABASE`、`PGUSER`、`PGPASSWORD` 和 `PGSSLMODE`。
+
+## 初始化检查点表
+
+**手动建表**：在目标数据库中将 `search_path` 指向应用使用的 schema，再用 SQL 客户端完整执行 [schema.sql](src/langgraph-checkpoint-opengauss/schema.sql)。脚本在一个事务中创建四张表、三个辅助索引，并登记迁移版本 0–9。相同版本可重复执行。完成后，同步和异步应用都可省略下方示例中的 `setup()`，直接编译图。
+
+**应用建表**：首次部署时由 `setup()` 在当前 schema 中建立或迁移检查点表。
 
 ```python
 from langgraph_checkpoint_opengauss import OpenGaussSaver

@@ -37,3 +37,6 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools]
 packages = ["langgraph_checkpoint_opengauss"]
 package-dir = { langgraph_checkpoint_opengauss = "src/langgraph-checkpoint-opengauss" }
+
+[tool.setuptools.package-data]
+langgraph_checkpoint_opengauss = ["schema.sql"]
