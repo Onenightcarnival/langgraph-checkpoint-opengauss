@@ -37,3 +37,8 @@ class OpenGaussStore(StoreSQL, SyncSession, PostgresStore):
         with self._cursor() as cur:
             cur.execute(self.SWEEP_SQL)
             return cur.fetchone()["deleted"]
+
+    def _batch_search_ops(self, search_ops, results, cur):
+        queries, requests = self._prepare_batch_search_queries(search_ops)
+        vectors = self.embeddings.embed_documents([text for _, text in requests]) if requests else []
+        _execute(cur, self._search_pages(search_ops, results, queries, requests, vectors))

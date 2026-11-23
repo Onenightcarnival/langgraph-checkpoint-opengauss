@@ -59,3 +59,19 @@ class StoreSQL:
             query, params = embedding
             embedding = _upsert(query, _PUT["vector"]), params
         return items, embedding
+
+    def _search_pages(self, ops, results, queries, requests, vectors):
+        by_query = {idx: vector for (idx, _), vector in zip(requests, vectors, strict=True)}
+        for idx, ((result_idx, op), (query, params)) in enumerate(zip(ops, queries, strict=True)):
+            if idx in by_query:
+                params = [by_query[idx] if value is base.PLACEHOLDER else value for value in params]
+                # The final three bindings are the candidate limit, item limit and item offset.
+                params[-3] += op.offset * self.index_config["__estimated_num_vectors"]
+            rows = yield query, params, True
+            if idx in by_query and (rows or op.offset) and len(rows) < op.limit:
+                # Several nearest fields may belong to one item. Rank all matches for a short page.
+                rows = yield query, [*params[:-3], None, op.limit, op.offset], True
+            results[result_idx] = [
+                base._row_to_search_item(base._decode_ns_bytes(row["prefix"]), row, loader=self._deserializer)
+                for row in rows
+            ]

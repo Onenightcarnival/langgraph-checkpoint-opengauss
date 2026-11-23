@@ -60,12 +60,13 @@ def embed(texts):
 @pytest.mark.parametrize("vector_type", ["vector", "halfvec"])
 @pytest.mark.parametrize("distance", ["cosine", "inner_product", "l2"])
 def test_vector_store(conninfo, run_async, kind, vector_type, distance):
+    options = {"flat": {}, "hnsw": {"m": 8, "ef_construction": 32}, "ivfflat": {"nlist": 1}}
     index = {
         "dims": 3,
         "embed": embed,
         "fields": ["title", "body"],
         "distance_type": distance,
-        "ann_index_config": {"kind": kind, "vector_type": vector_type},
+        "ann_index_config": {"kind": kind, "vector_type": vector_type, **options[kind]},
     }
     ns = ("places",)
 
@@ -150,6 +151,26 @@ def test_concurrent_store_migrations(conninfo):
 
     with ThreadPoolExecutor(3) as workers:
         list(workers.map(setup, range(3)))
+
+
+def test_vector_item_pagination(conninfo, run_async):
+    index = {
+        "dims": 2,
+        "embed": lambda texts: [[1.0, float(text)] for text in texts],
+        "fields": ["values[*]"],
+        "ann_index_config": {"kind": "flat"},
+    }
+    ns = ("ranked",)
+    with OpenGaussStore.from_conn_string(conninfo, index=index) as store:
+        store.setup()
+        store.batch([PutOp(ns, str(i), {"values": [str(i)] * (40 if i == 0 else 1)}) for i in range(12)])
+        assert [r.key for r in store.search(ns, query="0", limit=2)] == ["0", "1"]
+
+    async def read():
+        async with AsyncOpenGaussStore.from_conn_string(conninfo, index=index) as store:
+            assert [r.key for r in await store.asearch(ns, query="0", limit=1, offset=9)] == ["9"]
+
+    run_async(read())
 
 
 def test_manual_store_schema(conninfo):

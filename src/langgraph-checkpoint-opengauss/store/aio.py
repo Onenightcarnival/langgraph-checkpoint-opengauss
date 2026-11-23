@@ -37,3 +37,8 @@ class AsyncOpenGaussStore(StoreSQL, AsyncSession, AsyncPostgresStore):
         async with self._cursor() as cur:
             await cur.execute(self.SWEEP_SQL)
             return (await cur.fetchone())["deleted"]
+
+    async def _batch_search_ops(self, search_ops, results, cur):
+        queries, requests = self._prepare_batch_search_queries(search_ops)
+        vectors = await self.embeddings.aembed_documents([text for _, text in requests]) if requests else []
+        await _aexecute(cur, self._search_pages(search_ops, results, queries, requests, vectors))
