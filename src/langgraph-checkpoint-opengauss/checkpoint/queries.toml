@@ -101,6 +101,12 @@ ON DUPLICATE KEY UPDATE
 """
 
 [migration]
+layout = """
+SELECT bool_or(column_name = 'checkpoint_id') AS has_history
+FROM information_schema.columns
+WHERE table_schema = current_schema() AND table_name = 'checkpoints'
+GROUP BY table_name
+"""
 postgres_index = "INDEX CONCURRENTLY"
 opengauss_index = "INDEX"
 lock = """
@@ -163,4 +169,38 @@ WHERE EXISTS (
 """
 checkpoints = """
 DELETE FROM checkpoints WHERE metadata ->> 'run_id' = ANY(%s)
+"""
+
+[shallow]
+select = """
+SELECT c.thread_id, c.checkpoint_ns, c.checkpoint_id, c.checkpoint, c.metadata,
+    (
+        SELECT json_agg(ARRAY[b.channel, b.type, encode(b.blob, 'hex')])
+        FROM checkpoint_blobs b
+        WHERE b.thread_id = c.thread_id AND b.checkpoint_ns = c.checkpoint_ns
+          AND (c.checkpoint -> 'channel_versions') ? b.channel
+    ) AS channel_values,
+    (
+        SELECT json_agg(ARRAY[w.task_id, w.channel, w.type, encode(w.blob, 'hex'), w.task_path, w.idx::text])
+        FROM checkpoint_writes w
+        WHERE w.thread_id = c.thread_id AND w.checkpoint_ns = c.checkpoint_ns
+          AND w.checkpoint_id = c.checkpoint_id
+    ) AS pending_writes,
+    (
+        SELECT json_agg(ARRAY[w.type, encode(w.blob, 'hex')] ORDER BY w.task_path, w.task_id, w.idx)
+        FROM checkpoint_writes w
+        WHERE w.thread_id = c.thread_id AND w.checkpoint_ns = c.checkpoint_ns
+          AND w.channel = '{tasks}'
+    ) AS pending_sends
+FROM (SELECT *, checkpoint ->> 'id' AS checkpoint_id FROM checkpoints) c
+"""
+upsert_checkpoint = """
+INSERT INTO checkpoints (thread_id, checkpoint_ns, checkpoint, metadata)
+VALUES (%s, %s, %s, %s)
+ON DUPLICATE KEY UPDATE checkpoint = VALUES(checkpoint), metadata = VALUES(metadata)
+"""
+upsert_blob = """
+INSERT INTO checkpoint_blobs (thread_id, checkpoint_ns, channel, type, blob)
+VALUES (%s, %s, %s, %s, %s)
+ON DUPLICATE KEY UPDATE type = VALUES(type), blob = VALUES(blob)
 """

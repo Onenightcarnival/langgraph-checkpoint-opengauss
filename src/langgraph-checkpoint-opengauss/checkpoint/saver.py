@@ -32,10 +32,8 @@ class SaverSession(SyncSession):
 
     def setup(self) -> None:
         with self._cursor() as cur:
-            _execute(cur, sql.migrations(self.MIGRATIONS))
+            _execute(cur, sql.migrations(self.MIGRATIONS, shallow=self.SHALLOW))
 
-
-class OpenGaussSaver(sql.OpenGaussSQL, SaverSession, PostgresSaver):
     def list(
         self,
         config: RunnableConfig | None,
@@ -62,6 +60,8 @@ class OpenGaussSaver(sql.OpenGaussSQL, SaverSession, PostgresSaver):
     ) -> RunnableConfig:
         return super().put(sql.with_namespace(config), checkpoint, metadata, new_versions)
 
+
+class OpenGaussSaver(sql.OpenGaussSQL, SaverSession, PostgresSaver):
     def copy_thread(self, source_thread_id: str, target_thread_id: str) -> None:
         with self._cursor() as cur:
             _execute(cur, sql.copy_thread(source_thread_id, target_thread_id))

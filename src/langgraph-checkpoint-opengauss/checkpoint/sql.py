@@ -10,6 +10,7 @@ _QUERIES = load_queries(__package__)
 
 
 class OpenGaussSQL:
+    SHALLOW = False
     MIGRATIONS = tuple(
         statement.replace(_QUERIES["migration"]["postgres_index"], _QUERIES["migration"]["opengauss_index"])
         for statement in base.MIGRATIONS
@@ -34,7 +35,7 @@ class OpenGaussSQL:
             for channel, kind, blob in row["channel_values"] or []
             if kind != "empty"
         ]
-        if sends := row["sends"]:
+        if sends := row.get("sends"):
             self._migrate_pending_sends(
                 [(kind.encode(), bytes.fromhex(blob)) for kind, blob in sends],
                 row["checkpoint"],
@@ -59,9 +60,12 @@ def with_namespace(config: RunnableConfig) -> RunnableConfig:
     return {**config, "configurable": {"checkpoint_ns": "", **config["configurable"]}}
 
 
-def migrations(statements):
+def migrations(statements, *, shallow):
     migration = _QUERIES["migration"]
     yield migration["lock"], (), False
+    layout = yield migration["layout"], (), True
+    if layout and layout[0]["has_history"] == shallow:
+        raise ValueError("Full and shallow checkpoints require separate schemas")
     yield statements[0], (), False
     rows = yield migration["latest"], (), True
     latest = rows[0]["version"]

@@ -33,10 +33,8 @@ class AsyncSaverSession(AsyncSession):
 
     async def setup(self) -> None:
         async with self._cursor() as cur:
-            await _aexecute(cur, sql.migrations(self.MIGRATIONS))
+            await _aexecute(cur, sql.migrations(self.MIGRATIONS, shallow=self.SHALLOW))
 
-
-class AsyncOpenGaussSaver(sql.OpenGaussSQL, AsyncSaverSession, AsyncPostgresSaver):
     async def alist(
         self,
         config: RunnableConfig | None,
@@ -63,6 +61,8 @@ class AsyncOpenGaussSaver(sql.OpenGaussSQL, AsyncSaverSession, AsyncPostgresSave
     ) -> RunnableConfig:
         return await super().aput(sql.with_namespace(config), checkpoint, metadata, new_versions)
 
+
+class AsyncOpenGaussSaver(sql.OpenGaussSQL, AsyncSaverSession, AsyncPostgresSaver):
     def _check_sync_thread(self) -> None:
         try:
             loop = asyncio.get_running_loop()
