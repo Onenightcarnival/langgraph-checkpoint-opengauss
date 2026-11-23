@@ -47,7 +47,7 @@ class AsyncOpenGaussSaver(sql.OpenGaussSQL, AsyncPostgresSaver):
             conn.transaction(),
             conn.cursor(binary=True, row_factory=dict_row) as cur,
         ):
-            await cur.execute("SHOW behavior_compat_options")
+            await cur.execute(sql.SHOW_OPTIONS)
             option = sql.empty_string_option((await cur.fetchone())["behavior_compat_options"])
             if option is not None:
                 await cur.execute(option)

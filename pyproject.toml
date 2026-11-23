@@ -3,7 +3,7 @@ name = "langgraph-checkpoint-opengauss"
 version = "0.1.0"
 description = "openGauss checkpoint persistence for LangGraph"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 license = "MIT"
 license-files = ["LICENSE"]
 dependencies = ["langgraph-checkpoint-postgres==3.2.1"]
@@ -54,4 +54,4 @@ packages = ["langgraph_checkpoint_opengauss"]
 package-dir = { langgraph_checkpoint_opengauss = "src/langgraph-checkpoint-opengauss" }
 
 [tool.setuptools.package-data]
-langgraph_checkpoint_opengauss = ["schema.sql"]
+langgraph_checkpoint_opengauss = ["queries.toml", "schema.sql"]

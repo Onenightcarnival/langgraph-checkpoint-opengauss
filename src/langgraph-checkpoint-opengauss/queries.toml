@@ -1,0 +1,170 @@
+[checkpoint]
+select = """
+SELECT
+    thread_id,
+    checkpoint,
+    checkpoint_ns,
+    checkpoint_id,
+    parent_checkpoint_id,
+    metadata,
+    (
+        SELECT json_agg(ARRAY[b.channel, b.type, encode(b.blob, 'hex')])
+        FROM jsonb_each_text(checkpoints.checkpoint -> 'channel_versions') v
+        JOIN checkpoint_blobs b
+            ON b.channel = v.key
+           AND b.version = v.value
+        WHERE b.thread_id = checkpoints.thread_id
+          AND b.checkpoint_ns = checkpoints.checkpoint_ns
+    ) AS channel_values,
+    (
+        SELECT json_agg(ARRAY[
+            w.task_id,
+            w.channel,
+            w.type,
+            encode(w.blob, 'hex'),
+            w.task_path,
+            w.idx::text
+        ])
+        FROM checkpoint_writes w
+        WHERE w.thread_id = checkpoints.thread_id
+          AND w.checkpoint_ns = checkpoints.checkpoint_ns
+          AND w.checkpoint_id = checkpoints.checkpoint_id
+    ) AS pending_writes,
+    CASE
+        WHEN (checkpoint ->> 'v')::int < 4 AND parent_checkpoint_id IS NOT NULL THEN (
+            SELECT json_agg(
+                ARRAY[w.type, encode(w.blob, 'hex')]
+                ORDER BY w.task_path, w.task_id, w.idx
+            )
+            FROM checkpoint_writes w
+            WHERE w.thread_id = checkpoints.thread_id
+              AND w.checkpoint_ns = checkpoints.checkpoint_ns
+              AND w.checkpoint_id = checkpoints.parent_checkpoint_id
+              AND w.channel = '{tasks}'
+        )
+    END AS sends
+FROM checkpoints
+"""
+order = "ORDER BY checkpoint_id DESC"
+limit = "LIMIT %s"
+
+upsert = """
+INSERT INTO checkpoints (
+    thread_id,
+    checkpoint_ns,
+    checkpoint_id,
+    parent_checkpoint_id,
+    checkpoint,
+    metadata
+)
+VALUES (%s, %s, %s, %s, %s, %s)
+ON DUPLICATE KEY UPDATE
+    checkpoint = VALUES(checkpoint),
+    metadata = VALUES(metadata)
+"""
+
+[blob]
+insert = """
+INSERT INTO checkpoint_blobs (
+    thread_id,
+    checkpoint_ns,
+    channel,
+    version,
+    type,
+    blob
+)
+VALUES (%s, %s, %s, %s, %s, %s)
+ON DUPLICATE KEY UPDATE NOTHING
+"""
+
+[write]
+insert = """
+INSERT INTO checkpoint_writes (
+    thread_id,
+    checkpoint_ns,
+    checkpoint_id,
+    task_id,
+    task_path,
+    idx,
+    channel,
+    type,
+    blob
+)
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+"""
+ignore_duplicate = "ON DUPLICATE KEY UPDATE NOTHING"
+update_duplicate = """
+ON DUPLICATE KEY UPDATE
+    channel = VALUES(channel),
+    type = VALUES(type),
+    blob = VALUES(blob)
+"""
+
+[session]
+show_options = "SHOW behavior_compat_options"
+set_options = "SET LOCAL behavior_compat_options = {}"
+
+[migration]
+postgres_index = "INDEX CONCURRENTLY"
+opengauss_index = "INDEX"
+lock = """
+SELECT pg_advisory_xact_lock(
+    hashtext(current_schema()),
+    hashtext('checkpoint_migrations')
+)
+"""
+latest = "SELECT max(v) AS version FROM checkpoint_migrations"
+record = "INSERT INTO checkpoint_migrations (v) VALUES (%s)"
+
+[thread]
+lock = """
+LOCK TABLE checkpoints, checkpoint_blobs, checkpoint_writes
+IN SHARE ROW EXCLUSIVE MODE
+"""
+copy = """
+INSERT INTO {table} (thread_id, {columns})
+SELECT %s, {columns}
+FROM {table}
+WHERE thread_id = %s
+"""
+
+[thread.columns]
+checkpoints = "checkpoint_ns, checkpoint_id, parent_checkpoint_id, type, checkpoint, metadata"
+checkpoint_blobs = "checkpoint_ns, channel, version, type, blob"
+checkpoint_writes = "checkpoint_ns, checkpoint_id, task_id, idx, channel, type, blob, task_path"
+
+[delete_runs]
+blobs = """
+DELETE FROM checkpoint_blobs b
+WHERE
+    EXISTS (
+        SELECT 1
+        FROM checkpoints c
+        WHERE c.thread_id = b.thread_id
+          AND c.checkpoint_ns = b.checkpoint_ns
+          AND c.checkpoint -> 'channel_versions' ->> b.channel = b.version
+          AND c.metadata ->> 'run_id' = ANY(%s)
+    )
+    AND NOT EXISTS (
+        SELECT 1
+        FROM checkpoints c
+        WHERE c.thread_id = b.thread_id
+          AND c.checkpoint_ns = b.checkpoint_ns
+          AND c.checkpoint -> 'channel_versions' ->> b.channel = b.version
+          AND (c.metadata ->> 'run_id' = ANY(%s)) IS NOT TRUE
+    )
+"""
+writes = """
+DELETE FROM checkpoint_writes w
+WHERE EXISTS (
+    SELECT 1
+    FROM checkpoints c
+    WHERE c.thread_id = w.thread_id
+      AND c.checkpoint_ns = w.checkpoint_ns
+      AND c.checkpoint_id = w.checkpoint_id
+      AND c.metadata ->> 'run_id' = ANY(%s)
+)
+"""
+checkpoints = """
+DELETE FROM checkpoints WHERE metadata ->> 'run_id' = ANY(%s)
+"""

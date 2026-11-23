@@ -43,7 +43,7 @@ class OpenGaussSaver(sql.OpenGaussSQL, PostgresSaver):
             conn.transaction(),
             conn.cursor(binary=True, row_factory=dict_row) as cur,
         ):
-            cur.execute("SHOW behavior_compat_options")
+            cur.execute(sql.SHOW_OPTIONS)
             option = sql.empty_string_option(cur.fetchone()["behavior_compat_options"])
             if option is not None:
                 cur.execute(option)
