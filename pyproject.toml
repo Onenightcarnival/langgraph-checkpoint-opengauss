@@ -50,8 +50,10 @@ requires = ["setuptools>=77.0.3"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["langgraph_checkpoint_opengauss"]
+packages = ["langgraph_checkpoint_opengauss", "langgraph_checkpoint_opengauss.checkpoint", "langgraph_checkpoint_opengauss.store"]
 package-dir = { langgraph_checkpoint_opengauss = "src/langgraph-checkpoint-opengauss" }
 
 [tool.setuptools.package-data]
-langgraph_checkpoint_opengauss = ["queries.toml", "schema.sql"]
+langgraph_checkpoint_opengauss = ["schema.sql", "session.toml"]
+"langgraph_checkpoint_opengauss.checkpoint" = ["*.toml"]
+"langgraph_checkpoint_opengauss.store" = ["*.toml", "*.sql"]

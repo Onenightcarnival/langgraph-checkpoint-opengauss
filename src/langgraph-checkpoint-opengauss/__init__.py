@@ -1,6 +1,5 @@
 """openGauss checkpoint persistence for LangGraph."""
 
-from .aio import AsyncOpenGaussSaver
-from .saver import OpenGaussSaver
+from .checkpoint import AsyncOpenGaussSaver, OpenGaussSaver
 
 __all__ = ["AsyncOpenGaussSaver", "OpenGaussSaver"]

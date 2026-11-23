@@ -1,16 +1,12 @@
-import tomllib
 from collections.abc import Sequence
-from importlib.resources import files
 
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.postgres import base
 from langgraph.checkpoint.serde.types import TASKS
-from psycopg import sql
 
-with files(__package__).joinpath("queries.toml").open("rb") as stream:
-    _QUERIES = tomllib.load(stream)
+from .._session import load_queries
 
-SHOW_OPTIONS = _QUERIES["session"]["show_options"]
+_QUERIES = load_queries(__package__)
 
 
 class OpenGaussSQL:
@@ -63,19 +59,13 @@ def with_namespace(config: RunnableConfig) -> RunnableConfig:
     return {**config, "configurable": {"checkpoint_ns": "", **config["configurable"]}}
 
 
-def empty_string_option(options: str):
-    flags = [flag.strip() for flag in options.split(",") if flag.strip()]
-    if "accept_empty_str" not in flags:
-        return sql.SQL(_QUERIES["session"]["set_options"]).format(sql.Literal(",".join([*flags, "accept_empty_str"])))
-
-
-def migrations():
+def migrations(statements):
     migration = _QUERIES["migration"]
     yield migration["lock"], (), False
-    yield OpenGaussSQL.MIGRATIONS[0], (), False
+    yield statements[0], (), False
     rows = yield migration["latest"], (), True
     latest = rows[0]["version"]
-    for version, statement in enumerate(OpenGaussSQL.MIGRATIONS):
+    for version, statement in enumerate(statements):
         if latest is None or version > latest:
             yield statement, (), False
             yield migration["record"], (version,), False

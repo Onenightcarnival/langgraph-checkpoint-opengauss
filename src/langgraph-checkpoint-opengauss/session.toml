@@ -1,0 +1,2 @@
+show_options = "SHOW behavior_compat_options"
+set_options = "SET LOCAL behavior_compat_options = {}"
