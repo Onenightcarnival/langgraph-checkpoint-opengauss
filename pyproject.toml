@@ -1,7 +1,7 @@
 [project]
 name = "langgraph-checkpoint-opengauss"
 version = "0.1.0"
-description = "openGauss checkpoint persistence for LangGraph"
+description = "openGauss checkpoint and store backends for LangGraph"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
@@ -50,10 +50,14 @@ requires = ["setuptools>=77.0.3"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["langgraph_checkpoint_opengauss", "langgraph_checkpoint_opengauss.checkpoint", "langgraph_checkpoint_opengauss.store"]
+packages = [
+    "langgraph_checkpoint_opengauss",
+    "langgraph_checkpoint_opengauss.checkpoint",
+    "langgraph_checkpoint_opengauss.store",
+]
 package-dir = { langgraph_checkpoint_opengauss = "src/langgraph-checkpoint-opengauss" }
 
 [tool.setuptools.package-data]
 langgraph_checkpoint_opengauss = ["schema.sql", "session.toml"]
-"langgraph_checkpoint_opengauss.checkpoint" = ["*.toml"]
+"langgraph_checkpoint_opengauss.checkpoint" = ["*.toml", "*.sql"]
 "langgraph_checkpoint_opengauss.store" = ["*.toml", "*.sql"]

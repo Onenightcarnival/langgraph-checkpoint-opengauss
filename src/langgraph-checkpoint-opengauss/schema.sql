@@ -9,6 +9,15 @@ SELECT pg_advisory_xact_lock(
 
 DO $ddl$
 BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = current_schema() AND table_name = 'checkpoints'
+        GROUP BY table_name
+        HAVING NOT bool_or(column_name = 'checkpoint_id')
+    ) THEN
+        RAISE EXCEPTION 'Full and shallow checkpoints require separate schemas';
+    END IF;
+
     CREATE TABLE IF NOT EXISTS checkpoint_migrations (
         v INTEGER PRIMARY KEY
     );

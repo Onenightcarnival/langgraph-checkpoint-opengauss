@@ -1,3 +1,6 @@
+from importlib.resources import files
+
+import psycopg
 import pytest
 from langgraph.checkpoint.conformance.test_utils import generate_checkpoint, generate_config
 from langgraph.checkpoint.serde.types import TASKS
@@ -5,10 +8,17 @@ from langgraph_checkpoint_opengauss.checkpoint import AsyncShallowOpenGaussSaver
 
 
 @pytest.mark.filterwarnings("ignore:.*ShallowPostgresSaver is deprecated:DeprecationWarning")
-def test_shallow_checkpoint(conninfo, run_async):
+@pytest.mark.parametrize("manual", [False, True])
+def test_shallow_checkpoint(conninfo, run_async, manual):
     ns = generate_config("agent")
+    if manual:
+        ddl = files("langgraph_checkpoint_opengauss.checkpoint").joinpath("shallow.sql").read_text("utf-8")
+        with psycopg.connect(conninfo, autocommit=True) as conn:
+            conn.execute(ddl)
+            conn.execute(ddl)
     with ShallowOpenGaussSaver.from_conn_string(conninfo) as saver:
-        saver.setup()
+        if not manual:
+            saver.setup()
         first = generate_checkpoint(channel_values={"data": b"abc"}, channel_versions={"data": "1"})
         stored = saver.put(ns, first, {"step": 1}, first["channel_versions"])
         saver.put_writes(stored, [(TASKS, "resume"), ("status", "old")], "task")
