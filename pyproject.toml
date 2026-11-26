@@ -6,7 +6,31 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
 license-files = ["LICENSE"]
+authors = [{ name = "Chao Li" }]
+keywords = ["langgraph", "opengauss", "checkpoint", "checkpointer", "store", "memory", "pgvector"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Database",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
 dependencies = ["langgraph-checkpoint-postgres==3.2.1"]
+
+[project.optional-dependencies]
+binary = ["psycopg[binary]>=3.2"]
+
+[project.urls]
+Homepage = "https://github.com/Onenightcarnival/langgraph-checkpoint-opengauss"
+Repository = "https://github.com/Onenightcarnival/langgraph-checkpoint-opengauss"
+Issues = "https://github.com/Onenightcarnival/langgraph-checkpoint-opengauss/issues"
+Changelog = "https://github.com/Onenightcarnival/langgraph-checkpoint-opengauss/releases"
 
 [dependency-groups]
 dev = [

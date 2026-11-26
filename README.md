@@ -1,6 +1,6 @@
 # langgraph-checkpoint-opengauss
 
-English | [简体中文](README_CN.MD)
+English | [简体中文](https://github.com/Onenightcarnival/langgraph-checkpoint-opengauss/blob/main/README_CN.MD)
 
 An openGauss persistence backend for LangGraph, based on `langgraph-checkpoint-postgres==3.2.1`. Both subpackages provide synchronous and asynchronous APIs.
 
@@ -14,19 +14,21 @@ You can also import all six classes from `langgraph_checkpoint_opengauss`.
 
 ## Installation and connection
 
-From the project that will use the package, install this checkout in editable mode. Adjust the path to match its location.
-
 ```shell
-uv add --editable ../langgraph-checkpoint-opengauss
+uv add "langgraph-checkpoint-opengauss[binary]"
 ```
 
-The backend requires psycopg 3 and libpq. Install `psycopg[binary]` for a prebuilt driver with bundled libpq. Configure openGauss to accept the authentication method used by the PostgreSQL client.
+```shell
+pip install "langgraph-checkpoint-opengauss[binary]"
+```
+
+The `binary` extra installs `psycopg[binary]`, a prebuilt driver with bundled libpq. Without the extra, the environment provides psycopg 3 and a system libpq. Configure openGauss to accept the authentication method used by the PostgreSQL client.
 
 Pass a libpq DSN to `from_conn_string()`, or pass an empty string to use `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGPASSWORD`, and `PGSSLMODE` from the environment.
 
 ## Checkpoint table setup
 
-**Manual setup.** Set `search_path` to the application's schema and run the full script in your SQL client. It creates four tables and three secondary indexes and records migration versions 0–9 in one transaction. You can rerun the script for the same version. Once the tables exist, omit `setup()` in the examples below. [Checkpoint schema](src/langgraph-checkpoint-opengauss/schema.sql)
+**Manual setup.** Set `search_path` to the application's schema and run the full script in your SQL client. It creates four tables and three secondary indexes and records migration versions 0–9 in one transaction. You can rerun the script for the same version. Once the tables exist, omit `setup()` in the examples below. [Checkpoint schema](https://github.com/Onenightcarnival/langgraph-checkpoint-opengauss/blob/main/src/langgraph-checkpoint-opengauss/schema.sql)
 
 **Application setup.** Call `setup()` on the first deployment to create or migrate the checkpoint tables in the current schema.
 
@@ -52,7 +54,7 @@ async def run(builder, inputs, config):
 
 On Windows, use `SelectorEventLoop` for asynchronous psycopg connections.
 
-Use separate schemas for full-history and shallow savers. They use the same table names with different primary keys. Existing full-history deployments can keep their tables and connection strings. To initialize a shallow saver, call its `setup()` method or run the shallow schema script. [Shallow schema](src/langgraph-checkpoint-opengauss/checkpoint/shallow.sql)
+Use separate schemas for full-history and shallow savers. They use the same table names with different primary keys. Existing full-history deployments can keep their tables and connection strings. To initialize a shallow saver, call its `setup()` method or run the shallow schema script. [Shallow schema](https://github.com/Onenightcarnival/langgraph-checkpoint-opengauss/blob/main/src/langgraph-checkpoint-opengauss/checkpoint/shallow.sql)
 
 ## Checkpoint operations
 
@@ -116,7 +118,7 @@ async def search_documents(embeddings, query):
 
 Choose `flat`, `hnsw`, or `ivfflat` with either the `vector` or `halfvec` type and a `cosine`, `l2`, or `inner_product` distance metric. Use the same embedding model, dimensions, and index configuration for reads and writes. These combinations were tested on openGauss-lite 7.0.0-RC3 in A compatibility mode using its built-in vector types and operators.
 
-**Manual store setup.** Run the store schema script first. For the 1536-dimensional cosine HNSW configuration above, run the vector schema script next. For other configurations, call `setup()` on a store initialized with the desired `index`. To index documents written before indexing was enabled, write them again with `put` or `aput`. [Store schema](src/langgraph-checkpoint-opengauss/store/schema.sql) · [Vector schema](src/langgraph-checkpoint-opengauss/store/vector_schema.sql)
+**Manual store setup.** Run the store schema script first. For the 1536-dimensional cosine HNSW configuration above, run the vector schema script next. For other configurations, call `setup()` on a store initialized with the desired `index`. To index documents written before indexing was enabled, write them again with `put` or `aput`. [Store schema](https://github.com/Onenightcarnival/langgraph-checkpoint-opengauss/blob/main/src/langgraph-checkpoint-opengauss/store/schema.sql) · [Vector schema](https://github.com/Onenightcarnival/langgraph-checkpoint-opengauss/blob/main/src/langgraph-checkpoint-opengauss/store/vector_schema.sql)
 
 ## Local development and testing
 

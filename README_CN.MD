@@ -1,6 +1,6 @@
 # langgraph-checkpoint-opengauss
 
-[English](README.md) | 简体中文
+[English](https://github.com/Onenightcarnival/langgraph-checkpoint-opengauss/blob/main/README.md) | 简体中文
 
 LangGraph 的 openGauss 持久化后端，对齐 `langgraph-checkpoint-postgres==3.2.1`。两个子包均提供同步与异步接口。
 
@@ -14,19 +14,21 @@ LangGraph 的 openGauss 持久化后端，对齐 `langgraph-checkpoint-postgres=
 
 ## 安装与连接
 
-在使用方项目中添加本地组件包（路径指向本仓库）：
-
 ```shell
-uv add --editable ../langgraph-checkpoint-opengauss
+uv add "langgraph-checkpoint-opengauss[binary]"
 ```
 
-运行环境需要 psycopg 3 和可用的 libpq。使用预编译驱动的环境可安装 `psycopg[binary]`。数据库需允许 PostgreSQL 客户端使用配置的认证方式连接。
+```shell
+pip install "langgraph-checkpoint-opengauss[binary]"
+```
+
+`binary` 扩展安装 `psycopg[binary]`，即自带 libpq 的预编译驱动。不带该扩展时，运行环境需自行提供 psycopg 3 和系统 libpq。数据库需允许 PostgreSQL 客户端使用配置的认证方式连接。
 
 连接串接受 libpq DSN，也可用空字符串读取 `PGHOST`、`PGPORT`、`PGDATABASE`、`PGUSER`、`PGPASSWORD` 和 `PGSSLMODE`。
 
 ## 初始化检查点表
 
-**手动建表**：在目标数据库中将 `search_path` 指向应用使用的 schema，再用 SQL 客户端完整执行 [schema.sql](src/langgraph-checkpoint-opengauss/schema.sql)。脚本在一个事务中创建四张表、三个辅助索引，并登记迁移版本 0–9。相同版本可重复执行。完成后，同步和异步应用都可省略下方示例中的 `setup()`，直接编译图。
+**手动建表**：在目标数据库中将 `search_path` 指向应用使用的 schema，再用 SQL 客户端完整执行 [schema.sql](https://github.com/Onenightcarnival/langgraph-checkpoint-opengauss/blob/main/src/langgraph-checkpoint-opengauss/schema.sql)。脚本在一个事务中创建四张表、三个辅助索引，并登记迁移版本 0–9。相同版本可重复执行。完成后，同步和异步应用都可省略下方示例中的 `setup()`，直接编译图。
 
 **应用建表**：首次部署时由 `setup()` 在当前 schema 中建立或迁移检查点表。
 
@@ -52,7 +54,7 @@ async def run(builder, inputs, config):
 
 Windows 上的异步 psycopg 连接使用 `SelectorEventLoop`。
 
-完整历史与 shallow 模式使用相同的表名和不同的主键，两种模式分别使用独立的 schema。shallow 可调用自己的 `setup()`，或手动执行 [shallow.sql](src/langgraph-checkpoint-opengauss/checkpoint/shallow.sql)。已有完整历史部署继续使用原表和原连接串。
+完整历史与 shallow 模式使用相同的表名和不同的主键，两种模式分别使用独立的 schema。shallow 可调用自己的 `setup()`，或手动执行 [shallow.sql](https://github.com/Onenightcarnival/langgraph-checkpoint-opengauss/blob/main/src/langgraph-checkpoint-opengauss/checkpoint/shallow.sql)。已有完整历史部署继续使用原表和原连接串。
 
 ## 检查点操作
 
@@ -114,7 +116,7 @@ async def search_documents(embeddings, query):
 
 支持 `flat`、`hnsw`、`ivfflat`，向量类型为 `vector` 或 `halfvec`，距离为 `cosine`、`l2` 或 `inner_product`。同一 Store 的读写端共用嵌入模型、维度及索引配置。本地验证环境为 openGauss-lite 7.0.0-RC3（A 兼容模式），使用数据库内置向量类型与算子。
 
-**Store 手动建表**：执行 [store/schema.sql](src/langgraph-checkpoint-opengauss/store/schema.sql)。启用向量检索时，再执行 [store/vector_schema.sql](src/langgraph-checkpoint-opengauss/store/vector_schema.sql)。该脚本对应上例的 1536 维、cosine、HNSW 配置。其他配置可由带相应 `index` 的 Store 执行 `setup()` 生成。索引启用前已写入的文档可通过 `put` 或 `aput` 重新建立嵌入。
+**Store 手动建表**：执行 [store/schema.sql](https://github.com/Onenightcarnival/langgraph-checkpoint-opengauss/blob/main/src/langgraph-checkpoint-opengauss/store/schema.sql)。启用向量检索时，再执行 [store/vector_schema.sql](https://github.com/Onenightcarnival/langgraph-checkpoint-opengauss/blob/main/src/langgraph-checkpoint-opengauss/store/vector_schema.sql)。该脚本对应上例的 1536 维、cosine、HNSW 配置。其他配置可由带相应 `index` 的 Store 执行 `setup()` 生成。索引启用前已写入的文档可通过 `put` 或 `aput` 重新建立嵌入。
 
 ## 本地验证
 
